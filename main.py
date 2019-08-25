@@ -272,7 +272,7 @@ class Board:
         self.state = self.generate_index_list()
         self.state_word_index = 0
 
-    def find_solutions(self, limit=10):
+    def find_solutions(self, limit=None):
         solutions = []
         while self.has_next_state():
             self.go_to_next_state()
@@ -280,8 +280,9 @@ class Board:
                 if self.all_filled_in():
                     fl = self.get_filled_layout()
                     solutions.append((fl, Board.score_solution(fl)))
-                    if len(solutions) == limit:
-                        return sorted(solutions, key=lambda tup: tup[1], reverse=True)
+                    if limit is not None:
+                        if len(solutions) == limit:
+                            return sorted(solutions, key=lambda tup: tup[1], reverse=True)
                 else:
                     self.state_word_index += 1
 
@@ -309,9 +310,9 @@ class Board:
         lengths = set()
         word_lists = {}
         for row in self.layout:
-            lengths |= self.extract_word_lengths(row)
+            lengths |= Board.extract_word_lengths(row)
         for col in Board.get_transpose(self.layout):
-            lengths |= self.extract_word_lengths(col)
+            lengths |= Board.extract_word_lengths(col)
         for l in lengths:
             if l == 1:
                 word_lists[l] = sort_words_value(letter_value.keys())
@@ -581,14 +582,25 @@ layout10 = [[1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1]]
 
+layout11 = [[1, 1, 1, 1],
+            [0, 1, 1, 0],
+            [0, 1, 1, 0],
+            [1, 1, 1, 1]]
 
+layout12 = [[1, 1, 1, 1, 1, 0],
+            [1, 0, 1, 1, 0, 1],
+            [1, 1, 0, 1, 1, 1],
+            [1, 1, 1, 0, 1, 1],
+            [1, 0, 1, 1, 0, 1],
+            [0, 1, 1, 1, 1, 1]]
 
 
 # en_dict_path = './words_alpha.txt'
 en_dict_path = './english.dic'
-b = Board(en_dict_path, layout10)
-s = b.find_solutions(limit=10)
-print(s)
+b = Board(en_dict_path, layout12)
+s = b.find_solutions(limit=50000)
+for i in range(10):
+    print(s[i])
 
 # print_best_solution(calculate_solution_square(en_dict_path, 3))
 # d = load_dict(en_dict_path, word_length=3)
