@@ -1,4 +1,4 @@
-
+import copy
 
 letter_value = {
         "a": {"points":  1, "tiles":  9},
@@ -272,17 +272,20 @@ class Board:
         self.state = self.generate_index_list()
         self.state_word_index = 0
 
-    def find_solutions(self):
+    def find_solutions(self, limit=10):
         solutions = []
         while self.has_next_state():
             self.go_to_next_state()
             if self.is_valid_state():
-                if self.current_state_is_solution():
-                    solutions.append(self.get_current_state_pretty())
+                if self.all_filled_in():
+                    fl = self.get_filled_layout()
+                    solutions.append((fl, Board.score_solution(fl)))
+                    if len(solutions) == limit:
+                        return sorted(solutions, key=lambda tup: tup[1], reverse=True)
                 else:
                     self.state_word_index += 1
 
-        return solutions
+        return sorted(solutions, key=lambda tup: tup[1], reverse=True)
 
     @staticmethod
     def load_words(path):
@@ -305,9 +308,9 @@ class Board:
         """
         lengths = set()
         word_lists = {}
-        for row in self.get_rows_layout():
+        for row in self.layout:
             lengths |= self.extract_word_lengths(row)
-        for col in self.get_cols_layout():
+        for col in Board.get_transpose(self.layout):
             lengths |= self.extract_word_lengths(col)
         for l in lengths:
             if l == 1:
@@ -319,10 +322,14 @@ class Board:
     def generate_word_lookup_dict(self):
         """
         This method generates a dictionary of word lists of the following structure:
-        { 2: {2: set(words of length 2)},
-          3: {2: set(prefixes of length 2 from words of length 3),
+        { 1: {1: set(words of length 1)},
+          2: {1: set(prefixes of length 1 from words of length 2),
+              2: set(words of length 2)},
+          3: {1: set(prefixes of length 1 from words of length 3),
+              2: set(prefixes of length 2 from words of length 3),
               3: set(words of length 3)},
-          4: {2: set(prefixes of length 2 from words of length 4),
+          4: {1: set(prefixes of length 1 from words of length 4),
+              2: set(prefixes of length 2 from words of length 4),
               3: set(prefixes of length 3 from words of length 4),
               4: set(words of length 4)}
           .
@@ -335,8 +342,8 @@ class Board:
 
         lookup_dict = {}
         for word_length, word_list in self.word_lists.items():
-            for prefix_len in range(2, word_length+1):
-                if prefix_len == 2:
+            for prefix_len in range(1, word_length+1):
+                if prefix_len == 1:
                     lookup_dict[word_length] = {prefix_len: self.extract_prefixes(word_list, prefix_len)}
                 else:
                     lookup_dict[word_length][prefix_len] = self.extract_prefixes(word_list, prefix_len)
@@ -367,15 +374,15 @@ class Board:
                    [1, 0, 0, 0, 0, 1]]
 
         [(0, 0, -1, 25, 1),
-         (0, 1, -1, 25, 1),
+         (0, 5, -1, 25, 1),
          (1, 0, -1, dict_len_wordlen_2-1, 2),
-         (1, 1, -1, dict_len_wordlen_2-1, 2),
+         (1, 4, -1, dict_len_wordlen_2-1, 2),
          (2, 0, -1, dict_len_wordlen_6-1, 6),
          (3, 0, -1, dict_len_wordlen_6-1, 6),
          (4, 0, -1, dict_len_wordlen_2-1, 2),
-         (4, 1, -1, dict_len_wordlen_2-1, 2),
+         (4, 4, -1, dict_len_wordlen_2-1, 2),
          (5, 0, -1, 25, 1),
-         (5, 1, -1, 25, 1)]
+         (5, 5, -1, 25, 1)]
 
         :return: A list of the form described above.
         """
@@ -384,15 +391,16 @@ class Board:
         for row_index in range(len(self.layout)):
             word_len = 0
             word_index = 0
-            for el in self.layout[row_index]:
+            for col_index in range(len(self.layout[row_index])):
+                el = self.layout[row_index][col_index]
                 if el == 1:
                     word_len += 1
                 elif word_len > 0:
-                    index_list.append((row_index, word_index, -1, len(self.word_lists[word_len]) - 1, word_len))
+                    index_list.append((row_index, col_index - word_len, -1, len(self.word_lists[word_len]) - 1, word_len))
                     word_index += 1
                     word_len = 0
             if word_len > 0:
-                index_list.append((row_index, word_index, -1, len(self.word_lists[word_len]) - 1, word_len))
+                index_list.append((row_index, len(self.layout[row_index]) - word_len, -1, len(self.word_lists[word_len]) - 1, word_len))
         return index_list
 
     def has_next_state(self):
@@ -407,7 +415,7 @@ class Board:
         return False
 
     def go_to_next_state(self):
-        while self.state_word_index > 0:
+        while self.state_word_index >= 0:
             ri, wi, di, mdi, wl = self.state[self.state_word_index]
             if di < mdi:
                 di += 1
@@ -417,30 +425,64 @@ class Board:
                 self.state[self.state_word_index] = ri, wi, -1, mdi, wl
                 self.state_word_index -= 1
 
+    def get_filled_layout(self):
+        filled_layout = copy.deepcopy(self.layout)
+        for ri, wi, di, _, wl in self.state:
+            if di >= 0:
+                word = self.word_lists[wl][di]
+                for i in range(len(word)):
+                    filled_layout[ri][wi + i] = word[i]
+            else:
+                break
+        return filled_layout
 
-    def get_rows_layout(self):
-        """
-        This method returns the layout as a 2-dimensional matrix of
-        1's and 0's where the first index represents the row and the
-        second index the column.
-        :return: A 2-dimensional matrix as described above.
-        """
-        return self.layout
+    def is_valid_state(self):
+        filled_layout = self.get_filled_layout()
+        t = Board.get_transpose(filled_layout)
+        for row in t:
+            tmp_word = ''
+            tmp_word_len = 0
+            for poss_letter in row:
+                if isinstance(poss_letter, str):
+                    tmp_word += poss_letter
+                    tmp_word_len += 1
+                elif poss_letter == 1:
+                    tmp_word_len += 1
+                else:
+                    if not not tmp_word:
+                        if tmp_word not in self.lookup_dict[tmp_word_len][len(tmp_word)]:
+                            return False
+                        tmp_word = ''
+                        tmp_word_len = 0
+            if not not tmp_word:
+                if tmp_word not in self.lookup_dict[tmp_word_len][len(tmp_word)]:
+                    return False
+        return True
 
-    def get_cols_layout(self):
-        """
-        This method returns the layout as a 2-dimensional matrix of
-        1's and 0's where the first index represents the column and
-        the second index the row.
-        :return: A 2-dimensional matrix as described above.
-        """
-        cols = []
-        for i in range(len(self.layout[0])):
+    def all_filled_in(self):
+        for _, _, di, _, _ in self.state:
+            if di == -1:
+                return False
+        return True
+
+    @staticmethod
+    def score_solution(m):
+        s = 0
+        for r in m:
+            for l in r:
+                if isinstance(l, str):
+                    s += letter_value[l]['points']
+        return s
+
+    @staticmethod
+    def get_transpose(m):
+        trans = []
+        for i in range(len(m[0])):
             col = []
-            for j in range(len(self.layout)):
-                col.append(self.layout[j][i])
-            cols.append(col)
-        return cols
+            for j in range(len(m)):
+                col.append(m[j][i])
+            trans.append(col)
+        return trans
 
     @staticmethod
     def extract_word_lengths(arr):
@@ -492,12 +534,22 @@ layout5 = [[1, 0, 0, 0, 0, 1],
            [1, 1, 0, 0, 1, 1],
            [1, 0, 0, 0, 0, 1]]
 
+layout6 = [[1, 1, 1],
+           [1, 1, 1],
+           [1, 1, 1]]
+
+layout7 = [[1, 0, 1],
+           [1, 1, 1],
+           [1, 0, 1]]
+
 
 
 
 # en_dict_path = './words_alpha.txt'
 en_dict_path = './english.dic'
-b = Board(en_dict_path, layout5)
+b = Board(en_dict_path, layout3)
+s = b.find_solutions(limit=10)
+print(s)
 
 # print_best_solution(calculate_solution_square(en_dict_path, 3))
 # d = load_dict(en_dict_path, word_length=3)
