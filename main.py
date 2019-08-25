@@ -269,10 +269,20 @@ class Board:
         self.words = self.load_words(dict_path)
         self.word_lists = self.generate_word_lists()
         self.lookup_dict = self.generate_word_lookup_dict()
-        self.index_list = self.generate_index_list()
+        self.state = self.generate_index_list()
+        self.state_word_index = 0
 
     def find_solutions(self):
-        pass
+        solutions = []
+        while self.has_next_state():
+            self.go_to_next_state()
+            if self.is_valid_state():
+                if self.current_state_is_solution():
+                    solutions.append(self.get_current_state_pretty())
+                else:
+                    self.state_word_index += 1
+
+        return solutions
 
     @staticmethod
     def load_words(path):
@@ -341,7 +351,8 @@ class Board:
         word_index:     The position in this word's row.
         dict_index:     The index of the current word in the respective dictionary.
                         This dictionary is the list of all words with the same
-                        length as the current word.
+                        length as the current word. Initially, this value will be
+                        -1 which means that there is no word filled in yet.
         max_dict_index: The maximum dictionary index. This differs depending on the
                         word's length.
         word_length:    The length of the current word.
@@ -355,16 +366,17 @@ class Board:
                    [1, 1, 0, 0, 1, 1],
                    [1, 0, 0, 0, 0, 1]]
 
-        [(0, 0, 0, 25, 1),
-         (0, 1, 0, 25, 1),
-         (1, 0, 0, dict_len_wordlen_2-1, 2),
-         (1, 1, 0, dict_len_wordlen_2-1, 2),
-         (2, 0, 0, dict_len_wordlen_6-1, 6),
-         (3, 0, 0, dict_len_wordlen_6-1, 6),
-         (4, 0, 0, dict_len_wordlen_2-1, 2),
-         (4, 1, 0, dict_len_wordlen_2-1, 2),
-         (5, 0, 0, 25, 1),
-         (5, 1, 0, 25, 1)]
+        [(0, 0, -1, 25, 1),
+         (0, 1, -1, 25, 1),
+         (1, 0, -1, dict_len_wordlen_2-1, 2),
+         (1, 1, -1, dict_len_wordlen_2-1, 2),
+         (2, 0, -1, dict_len_wordlen_6-1, 6),
+         (3, 0, -1, dict_len_wordlen_6-1, 6),
+         (4, 0, -1, dict_len_wordlen_2-1, 2),
+         (4, 1, -1, dict_len_wordlen_2-1, 2),
+         (5, 0, -1, 25, 1),
+         (5, 1, -1, 25, 1)]
+
         :return: A list of the form described above.
         """
 
@@ -376,12 +388,35 @@ class Board:
                 if el == 1:
                     word_len += 1
                 elif word_len > 0:
-                    index_list.append((row_index, word_index, 0, len(self.word_lists[word_len]) - 1, word_len))
+                    index_list.append((row_index, word_index, -1, len(self.word_lists[word_len]) - 1, word_len))
                     word_index += 1
                     word_len = 0
             if word_len > 0:
-                index_list.append((row_index, word_index, 0, len(self.word_lists[word_len]) - 1, word_len))
+                index_list.append((row_index, word_index, -1, len(self.word_lists[word_len]) - 1, word_len))
         return index_list
+
+    def has_next_state(self):
+        """
+        This method checks whether there are still possible states of this Board that
+        have not been checked yet.
+        :return: True if there are more states to check, else False.
+        """
+        for _, _, dict_index, max_dict_index, _ in self.state:
+            if dict_index < max_dict_index:
+                return True
+        return False
+
+    def go_to_next_state(self):
+        while self.state_word_index > 0:
+            ri, wi, di, mdi, wl = self.state[self.state_word_index]
+            if di < mdi:
+                di += 1
+                self.state[self.state_word_index] = ri, wi, di, mdi, wl
+                break
+            else:
+                self.state[self.state_word_index] = ri, wi, -1, mdi, wl
+                self.state_word_index -= 1
+
 
     def get_rows_layout(self):
         """
@@ -462,7 +497,7 @@ layout5 = [[1, 0, 0, 0, 0, 1],
 
 # en_dict_path = './words_alpha.txt'
 en_dict_path = './english.dic'
-b = Board(en_dict_path, layout1)
+b = Board(en_dict_path, layout5)
 
 # print_best_solution(calculate_solution_square(en_dict_path, 3))
 # d = load_dict(en_dict_path, word_length=3)
