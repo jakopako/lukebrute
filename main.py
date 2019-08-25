@@ -273,6 +273,12 @@ class Board:
         self.state_word_index = 0
 
     def find_solutions(self, limit=None):
+        """
+        This method finds the actual solutions by iterating over all states and checking whether
+        they make sense or not.
+        :param limit: if not None this determines after how many solutions the process shall stop.
+        :return: An array with the solutions sorted in reverse order according to their values.
+        """
         solutions = []
         while self.has_next_state():
             self.go_to_next_state()
@@ -304,7 +310,7 @@ class Board:
         """
         This method returns a dictionary containing all the words
         for each word-length that is contained in this Board's layout.
-        The lists are sorted according to the word's values in a descending order.
+        The lists are sorted according to the word's values in descending order.
         :return: A dictionary containing all the relevant words for this Board's layout.
         """
         lengths = set()
