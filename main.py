@@ -415,6 +415,12 @@ class Board:
         return False
 
     def go_to_next_state(self):
+        """
+        This method brings this Board to the next state. It increases the right index by
+        one and handles the carry-logic if necessary. This method is not concerned whether
+        the next state is a valid state or not. This logic is handled by the method
+        is_valid_state().
+        """
         while self.state_word_index >= 0:
             ri, wi, di, mdi, wl = self.state[self.state_word_index]
             if di < mdi:
@@ -426,6 +432,11 @@ class Board:
                 self.state_word_index -= 1
 
     def get_filled_layout(self):
+        """
+        This method returns a copy of the layout field but with all the current state's
+        letters filled in instead of 1's.
+        :return: This Board's layout with the current state's letters filled in.
+        """
         filled_layout = copy.deepcopy(self.layout)
         for ri, wi, di, _, wl in self.state:
             if di >= 0:
@@ -437,6 +448,11 @@ class Board:
         return filled_layout
 
     def is_valid_state(self):
+        """
+        This method checks whether this Board's state is valid. I.e. whether the current state could
+        lead to or is a valid solution to the game.
+        :return: True or False depending on this Board's state.
+        """
         filled_layout = self.get_filled_layout()
         t = Board.get_transpose(filled_layout)
         for row in t:
@@ -460,6 +476,10 @@ class Board:
         return True
 
     def all_filled_in(self):
+        """
+        This method checks whether all fields of the Board's layout are filled in.
+        :return: True if all fields are filled in, False otherwise.
+        """
         for _, _, di, _, _ in self.state:
             if di == -1:
                 return False
@@ -467,6 +487,11 @@ class Board:
 
     @staticmethod
     def score_solution(m):
+        """
+        This method returns the score of the given layout m.
+        :param m: The filled in layout to be scored.
+        :return: The score of the given layout m.
+        """
         s = 0
         for r in m:
             for l in r:
@@ -542,12 +567,26 @@ layout7 = [[1, 0, 1],
            [1, 1, 1],
            [1, 0, 1]]
 
+layout8 = [[1, 1, 0, 0, 1, 1],
+           [1, 1, 0, 0, 1, 1]]
+
+layout9 = [[1, 0, 0, 0],
+           [0, 1, 0, 0],
+           [0, 0, 1, 0],
+           [0, 0, 0, 1]]
+
+layout10 = [[1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1]]
+
 
 
 
 # en_dict_path = './words_alpha.txt'
 en_dict_path = './english.dic'
-b = Board(en_dict_path, layout3)
+b = Board(en_dict_path, layout10)
 s = b.find_solutions(limit=10)
 print(s)
 
