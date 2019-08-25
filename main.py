@@ -26,8 +26,7 @@ letter_value = {
         "w": {"points":  5, "tiles":  2},
         "x": {"points":  7, "tiles":  1},
         "y": {"points":  5, "tiles":  2},
-        "z": {"points": 8, "tiles":  1},
-        "blank": {"tiles": 2}
+        "z": {"points": 8, "tiles":  1}
     }
 
 
@@ -50,6 +49,13 @@ def filter_on_length(length, words):
     return result_set
 
 
+def print_square(sol):
+    r = "\n"
+    for s in sol:
+        r += "%s\n" % s
+    return r
+
+
 def print_best_solution(sols):
     highest = 0
     highest_sol = None
@@ -61,7 +67,7 @@ def print_best_solution(sols):
         if c_value > highest:
             highest = c_value
             highest_sol = s
-    print("Most valuable solution: %s %d points" % (str(highest_sol), highest))
+    print("Most valuable solution: %s%d points" % (print_square(highest_sol), highest))
 
 
 def print_progress(curr, tot, sols):
@@ -257,34 +263,208 @@ def calculate_solution_square(dict_path, side_length):
             j += 1
 
 
+class Board:
+    def __init__(self, dict_path, layout):
+        self.layout = layout
+        self.words = self.load_words(dict_path)
+        self.word_lists = self.generate_word_lists()
+        self.lookup_dict = self.generate_word_lookup_dict()
+        self.index_list = self.generate_index_list()
 
-
-
-def square_recursive_finder(words, words_set, current_row, partial_solution):
-    word_len = len(words[0])
-    if word_len - current_row == 1:
+    def find_solutions(self):
         pass
-    else:
-        partial_solution = [words[0]]
-        return [words[0]].extend(square_recursive_finder(words, words_set, current_row + 1, partial_solution))
+
+    @staticmethod
+    def load_words(path):
+        """
+        This method reads the file at the given path and returns a
+        list containing the newline-separated words of this file.
+        :param path: The path to be read.
+        :return: A list of words contained within the given file.
+        """
+        with open(path, 'r') as f:
+            d = f.read().split('\n')
+            return [w.lower() for w in d]
+
+    def generate_word_lists(self):
+        """
+        This method returns a dictionary containing all the words
+        for each word-length that is contained in this Board's layout.
+        The lists are sorted according to the word's values in a descending order.
+        :return: A dictionary containing all the relevant words for this Board's layout.
+        """
+        lengths = set()
+        word_lists = {}
+        for row in self.get_rows_layout():
+            lengths |= self.extract_word_lengths(row)
+        for col in self.get_cols_layout():
+            lengths |= self.extract_word_lengths(col)
+        for l in lengths:
+            if l == 1:
+                word_lists[l] = sort_words_value(letter_value.keys())
+            else:
+                word_lists[l] = sort_words_value(filter_on_length(l, self.words))
+        return word_lists
+
+    def generate_word_lookup_dict(self):
+        """
+        This method generates a dictionary of word lists of the following structure:
+        { 2: {2: set(words of length 2)},
+          3: {2: set(prefixes of length 2 from words of length 3),
+              3: set(words of length 3)},
+          4: {2: set(prefixes of length 2 from words of length 4),
+              3: set(prefixes of length 3 from words of length 4),
+              4: set(words of length 4)}
+          .
+          .
+          .
+        The algorithm only generates these sets for word lengths that occur
+        in this Board's layout.
+        :return: A dictionary of the structure described above.
+        """
+
+        lookup_dict = {}
+        for word_length, word_list in self.word_lists.items():
+            for prefix_len in range(2, word_length+1):
+                if prefix_len == 2:
+                    lookup_dict[word_length] = {prefix_len: self.extract_prefixes(word_list, prefix_len)}
+                else:
+                    lookup_dict[word_length][prefix_len] = self.extract_prefixes(word_list, prefix_len)
+        return lookup_dict
+
+    def generate_index_list(self):
+        """
+        This list represents the initial state of the algorithm.
+        An item in this list is a tuple of the following form:
+        (row_index, word_index, dict_index, max_dict_index, word_length)
+        row_index:      The index of the row where this tuple's word is located.
+        word_index:     The position in this word's row.
+        dict_index:     The index of the current word in the respective dictionary.
+                        This dictionary is the list of all words with the same
+                        length as the current word.
+        max_dict_index: The maximum dictionary index. This differs depending on the
+                        word's length.
+        word_length:    The length of the current word.
+
+        Example of the initial list for layout0.
+
+        layout0 = [[1, 0, 0, 0, 0, 1],
+                   [1, 1, 0, 0, 1, 1],
+                   [1, 1, 1, 1, 1, 1],
+                   [1, 1, 1, 1, 1, 1],
+                   [1, 1, 0, 0, 1, 1],
+                   [1, 0, 0, 0, 0, 1]]
+
+        [(0, 0, 0, 25, 1),
+         (0, 1, 0, 25, 1),
+         (1, 0, 0, dict_len_wordlen_2-1, 2),
+         (1, 1, 0, dict_len_wordlen_2-1, 2),
+         (2, 0, 0, dict_len_wordlen_6-1, 6),
+         (3, 0, 0, dict_len_wordlen_6-1, 6),
+         (4, 0, 0, dict_len_wordlen_2-1, 2),
+         (4, 1, 0, dict_len_wordlen_2-1, 2),
+         (5, 0, 0, 25, 1),
+         (5, 1, 0, 25, 1)]
+        :return: A list of the form described above.
+        """
+
+        index_list = []
+        for row_index in range(len(self.layout)):
+            word_len = 0
+            word_index = 0
+            for el in self.layout[row_index]:
+                if el == 1:
+                    word_len += 1
+                elif word_len > 0:
+                    index_list.append((row_index, word_index, 0, len(self.word_lists[word_len]) - 1, word_len))
+                    word_index += 1
+                    word_len = 0
+            if word_len > 0:
+                index_list.append((row_index, word_index, 0, len(self.word_lists[word_len]) - 1, word_len))
+        return index_list
+
+    def get_rows_layout(self):
+        """
+        This method returns the layout as a 2-dimensional matrix of
+        1's and 0's where the first index represents the row and the
+        second index the column.
+        :return: A 2-dimensional matrix as described above.
+        """
+        return self.layout
+
+    def get_cols_layout(self):
+        """
+        This method returns the layout as a 2-dimensional matrix of
+        1's and 0's where the first index represents the column and
+        the second index the row.
+        :return: A 2-dimensional matrix as described above.
+        """
+        cols = []
+        for i in range(len(self.layout[0])):
+            col = []
+            for j in range(len(self.layout)):
+                col.append(self.layout[j][i])
+            cols.append(col)
+        return cols
+
+    @staticmethod
+    def extract_word_lengths(arr):
+        ls = set()
+        tmp_len = 0
+        for el in arr:
+            if el == 1:
+                tmp_len += 1
+            elif tmp_len > 0:
+                ls.add(tmp_len)
+                tmp_len = 0
+        if tmp_len > 0:
+            ls.add(tmp_len)
+        return ls
+
+    @staticmethod
+    def extract_prefixes(word_list, prefix_len):
+        prefixes = set()
+        for word in word_list:
+            prefixes.add(word[:prefix_len])
+        return prefixes
 
 
-def find_square_solution(dict_path, side_length):
-    d = load_dict(dict_path, word_length=side_length)
-    d = sort_words_value(d)
-    d_set = set(d)
-    return square_recursive_finder(d, d_set, 0)
+layout1 = [[0, 0, 1],
+           [0, 1, 1],
+           [1, 1, 1]]
+
+layout2 = [[1, 1, 1, 1],
+           [1, 1, 1, 0],
+           [1, 1, 0, 0],
+           [1, 0, 0, 0]]
+
+layout3 = [[1, 1, 1, 1, 1, 1],
+           [0, 1, 1, 1, 1, 0],
+           [0, 0, 1, 1, 0, 0],
+           [0, 0, 1, 1, 0, 0],
+           [0, 1, 1, 1, 1, 0],
+           [1, 1, 1, 1, 1, 1]]
+
+layout4 = [[1, 1, 1, 0, 0, 0],
+           [0, 1, 1, 1, 0, 0],
+           [0, 0, 1, 1, 1, 0],
+           [0, 0, 0, 1, 1, 1]]
+
+layout5 = [[1, 0, 0, 0, 0, 1],
+           [1, 1, 0, 0, 1, 1],
+           [1, 1, 1, 1, 1, 1],
+           [1, 1, 1, 1, 1, 1],
+           [1, 1, 0, 0, 1, 1],
+           [1, 0, 0, 0, 0, 1]]
 
 
-def fac_recursive(n):
-    if n == 1:
-        return 1
-    else:
-        return n * fac_recursive(n - 1)
+
 
 # en_dict_path = './words_alpha.txt'
 en_dict_path = './english.dic'
-print_best_solution(calculate_solution_square(en_dict_path, 5))
+b = Board(en_dict_path, layout1)
+
+# print_best_solution(calculate_solution_square(en_dict_path, 3))
 # d = load_dict(en_dict_path, word_length=3)
 # solution = calculate_solution_square_3(d)
 # d = sort_words_value(d)
@@ -293,3 +473,5 @@ print_best_solution(calculate_solution_square(en_dict_path, 5))
 # print(solution)
 # find_square_solution(en_dict_path, 2)
 
+
+# ['jazzer', 'oriole', 'tenuis', 'togate', 'eleven', 'rarest']
