@@ -44,6 +44,8 @@ class Board {
     vector<string> words;
     map<int, vector<string>> word_lists;
     map<int, map<int, set<string>>> lookup_dict;
+    vector<vector<int>> state;
+    int state_word_index;
 
     private:
 
@@ -145,6 +147,45 @@ class Board {
         return lookup_dict;
     }
 
+    vector<vector<int>> initiate_state() {
+        vector<vector<int>> init_state;
+        for (int row_index = 0; row_index < layout.size(); row_index++){
+            int word_len = 0;
+            int word_index = 0;
+            for (int col_index = 0; col_index < layout[0].size(); col_index++){
+                int el = layout[row_index][col_index];
+                if (el == 1) {
+                    word_len++;
+                } else if (word_len > 0) {
+                    int word_list_length = word_lists[word_len].size();
+                    vector<int> state_row = {row_index, col_index - word_len, -1, word_list_length - 1, word_len};
+                    init_state.push_back(state_row);
+                    word_index++;
+                    word_len = 0;
+                }
+            }
+            if (word_len > 0) {
+                int word_list_length = word_lists[word_len].size();
+                int row_length = layout[row_index].size();
+                vector<int> state_row = {row_index, row_index - word_len, -1, word_list_length - 1, word_len};
+                init_state.push_back(state_row);
+            }
+        }
+        return init_state;
+    }
+
+    bool has_next_state() {}
+
+    void go_to_next_state() {}
+
+    bool is_valid_state() {}
+
+    bool all_filled_in(){}
+
+    vector<vector<char>> get_filled_layout() {}
+
+    static bool compare_solutions(vector<vector<char>> &sol1, vector<vector<char>> &sol2) {}
+
     public:
     
     Board (vector<vector<int> > l, string d) {
@@ -153,6 +194,8 @@ class Board {
         words = load_words();
         word_lists = generate_word_lists();
         lookup_dict = generate_word_lookup_dict();
+        state = initiate_state();
+        state_word_index = 0;
     }
 
     void print_layout() {
@@ -162,6 +205,29 @@ class Board {
             }
             std::cout << '\n';
         }
+    }
+
+    vector<vector<vector<char>>> find_solutions(int limit) {
+        vector<vector<vector<char>>> solutions;
+        while (has_next_state()) {
+            go_to_next_state();
+            if (is_valid_state()) {
+                if (all_filled_in()) {
+                    vector<vector<char>> fl = get_filled_layout();
+                    solutions.push_back(fl);
+                    if (limit > 0) {
+                        if (solutions.size() == limit) {
+                            sort(solutions.begin(), solutions.end(), compare_solutions);
+                            return solutions;
+                        }
+                    } else {
+                        state_word_index++;
+                    }
+                }
+            }
+        }
+        sort(solutions.begin(), solutions.end(), compare_solutions);
+        return solutions;
     }
 };
 
