@@ -604,7 +604,7 @@ layout12 = [[1, 1, 1, 1, 1, 0],
 # en_dict_path = './words_alpha.txt'
 en_dict_path = './english.dic'
 b = Board(en_dict_path, layout12)
-s = b.find_solutions(limit=50000)
+s = b.find_solutions(limit=1000)
 for i in range(10):
     print(s[i])
 
