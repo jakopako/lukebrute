@@ -600,10 +600,21 @@ layout12 = [[1, 1, 1, 1, 1, 0],
             [1, 0, 1, 1, 0, 1],
             [0, 1, 1, 1, 1, 1]]
 
+layout13 = [[1, 0, 1, 0, 1],
+            [1, 1, 1, 1, 1],
+            [0, 1, 0, 1, 0],
+            [1, 1, 1, 1, 1],
+            [1, 0, 1, 0, 1]]
+
+layout14 = [[0, 0, 0, 1],
+            [0, 0, 1, 1],
+            [0, 1, 1, 1],
+            [1, 1, 1, 1]]
+
 
 # en_dict_path = './words_alpha.txt'
 en_dict_path = './english.dic'
-b = Board(en_dict_path, layout12)
+b = Board(en_dict_path, layout14)
 s = b.find_solutions(limit=1000)
 for i in range(10):
     print(s[i])
